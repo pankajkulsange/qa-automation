@@ -25,7 +25,7 @@ pipeline {
                     echo "Using project at: ${PROJECT_PATH}"
                     dir("${PROJECT_PATH}") {
                         // Clean and prepare workspace
-                        bat 'git status || echo "Not a git repository, using local files"'
+                        bat 'git status 2>nul || echo "Not a git repository, using local files"'
                     }
                 }
             }
@@ -68,17 +68,7 @@ pipeline {
                                     -e MAVEN_OPTS="-Xmx2048m" ^
                                     -e SELENIUM_GRID_URL="http://selenium-hub:4444/wd/hub" ^
                                     maven:3.9.5-openjdk-11 ^
-                                    sh -c "
-                                        cd /app &&
-                                        mvn clean test \\
-                                            -Dbrowser=${params.BROWSER} \\
-                                            -Denv=${params.ENV} \\
-                                            -Dheadless=${params.HEADLESS} \\
-                                            -Dthreads=${params.THREADS} \\
-                                            -Dcucumber.options='${cucumberOptions}' \\
-                                            -Dselenium.grid.url=http://selenium-hub:4444/wd/hub \\
-                                            -Dselenium.grid.enabled=true
-                                    "
+                                    sh -c "cd /app && mvn clean test -Dbrowser=${params.BROWSER} -Denv=${params.ENV} -Dheadless=${params.HEADLESS} -Dthreads=${params.THREADS} -Dcucumber.options='${cucumberOptions}' -Dselenium.grid.url=http://selenium-hub:4444/wd/hub -Dselenium.grid.enabled=true"
                             """
                         } else {
                             // Run tests locally
@@ -108,10 +98,7 @@ pipeline {
                                     -v ${PROJECT_PATH}:/app ^
                                     -v maven-repo:/root/.m2 ^
                                     maven:3.9.5-openjdk-11 ^
-                                    sh -c "
-                                        cd /app &&
-                                        mvn verify
-                                    "
+                                    sh -c "cd /app && mvn verify"
                             """
                         } else {
                             bat 'mvn verify'
