@@ -39,8 +39,15 @@ public class InventorySteps {
     
     @Then("the cart should show {int} item")
     public void the_cart_should_show_item(int expectedCount) {
+        // Wait a bit more for cart to update
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
         int actualCount = inventoryPage.getCartItemCount();
-        Assert.assertEquals(actualCount, expectedCount, "Cart should show " + expectedCount + " items");
+        Assert.assertEquals(actualCount, expectedCount, "Cart should show " + expectedCount + " items. Actual count: " + actualCount);
     }
     
     @Then("the cart should show {int} items")

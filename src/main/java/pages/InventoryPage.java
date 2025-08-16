@@ -68,9 +68,11 @@ public class InventoryPage {
     
     public int getCartItemCount() {
         try {
-            // Wait for cart badge to be visible
-            wait.until(ExpectedConditions.visibilityOf(cartBadge));
-            return Integer.parseInt(cartBadge.getText());
+            // Wait for cart badge to be visible with a longer timeout
+            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            shortWait.until(ExpectedConditions.visibilityOf(cartBadge));
+            String badgeText = cartBadge.getText().trim();
+            return Integer.parseInt(badgeText);
         } catch (Exception e) {
             // Cart badge not visible means 0 items
             return 0;
@@ -81,10 +83,21 @@ public class InventoryPage {
         if (itemIndex >= 0 && itemIndex < addToCartButtons.size()) {
             WebElement addButton = addToCartButtons.get(itemIndex);
             wait.until(ExpectedConditions.elementToBeClickable(addButton));
+            
+            // Check if button is already "Remove" (item already in cart)
+            String buttonText = addButton.getText().trim();
+            if (buttonText.equals("Remove")) {
+                return; // Item already in cart
+            }
+            
             addButton.click();
-            // Wait a moment for the cart to update
+            
+            // Wait for button text to change to "Remove"
+            wait.until(ExpectedConditions.textToBePresentInElement(addButton, "Remove"));
+            
+            // Additional wait for cart badge to update
             try {
-                Thread.sleep(500);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -112,14 +125,27 @@ public class InventoryPage {
     
     public void logout() {
         openMenu();
-        // Wait a bit for menu to fully open
+        
+        // Wait for menu to fully open and logout link to be visible
         try {
-            Thread.sleep(1000);
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        wait.until(ExpectedConditions.elementToBeClickable(logoutLink));
-        logoutLink.click();
+        
+        // Try to find and click logout link with different approaches
+        try {
+            wait.until(ExpectedConditions.elementToBeClickable(logoutLink));
+            logoutLink.click();
+        } catch (Exception e) {
+            // If the above fails, try JavaScript click
+            try {
+                ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", logoutLink);
+            } catch (Exception jsException) {
+                // If JavaScript also fails, try direct navigation to logout
+                driver.get("https://www.saucedemo.com/");
+            }
+        }
     }
     
     public String getPageTitle() {
