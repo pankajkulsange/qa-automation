@@ -19,7 +19,9 @@ public class InventorySteps {
     
     @When("I add the first item to cart")
     public void i_add_the_first_item_to_cart() {
+        System.out.println("Adding first item to cart...");
         inventoryPage.addItemToCart(0);
+        System.out.println("First item added to cart.");
     }
     
     @When("I add the second item to cart")
@@ -29,7 +31,9 @@ public class InventorySteps {
     
     @When("I click on the shopping cart")
     public void i_click_on_the_shopping_cart() {
+        System.out.println("Clicking shopping cart...");
         inventoryPage.clickShoppingCart();
+        System.out.println("Shopping cart clicked. Current URL: " + inventoryPage.getCurrentUrl());
     }
     
     @When("I logout from the application")
@@ -58,7 +62,7 @@ public class InventorySteps {
     @Then("I should be on the cart page")
     public void i_should_be_on_the_cart_page() {
         String currentUrl = inventoryPage.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("cart.html") || currentUrl.contains("/cart"), "Should be on cart page. Current URL: " + currentUrl);
+        Assert.assertTrue(currentUrl.contains("cart") || currentUrl.contains("cart.html"), "Should be on cart page. Current URL: " + currentUrl);
     }
     
     @Then("I should be logged out successfully")

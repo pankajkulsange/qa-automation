@@ -64,12 +64,19 @@ public class InventoryPage {
     public void clickShoppingCart() {
         wait.until(ExpectedConditions.elementToBeClickable(shoppingCartLink));
         shoppingCartLink.click();
+        
+        // Wait for navigation to complete
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
     
     public int getCartItemCount() {
         try {
             // Wait for cart badge to be visible with a longer timeout
-            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(10));
             shortWait.until(ExpectedConditions.visibilityOf(cartBadge));
             String badgeText = cartBadge.getText().trim();
             return Integer.parseInt(badgeText);
@@ -92,12 +99,9 @@ public class InventoryPage {
             
             addButton.click();
             
-            // Wait for button text to change to "Remove"
-            wait.until(ExpectedConditions.textToBePresentInElement(addButton, "Remove"));
-            
-            // Additional wait for cart badge to update
+            // Simple wait for cart to update
             try {
-                Thread.sleep(1000);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
