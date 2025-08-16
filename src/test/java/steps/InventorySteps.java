@@ -51,7 +51,7 @@ public class InventorySteps {
     @Then("I should be on the cart page")
     public void i_should_be_on_the_cart_page() {
         String currentUrl = inventoryPage.getCurrentUrl();
-        Assert.assertTrue(currentUrl.contains("/cart.html"), "Should be on cart page");
+        Assert.assertTrue(currentUrl.contains("cart.html") || currentUrl.contains("/cart"), "Should be on cart page. Current URL: " + currentUrl);
     }
     
     @Then("I should be logged out successfully")

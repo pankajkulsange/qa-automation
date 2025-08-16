@@ -68,13 +68,13 @@ public class InventoryPage {
     
     public int getCartItemCount() {
         try {
-            if (cartBadge.isDisplayed()) {
-                return Integer.parseInt(cartBadge.getText());
-            }
+            // Wait for cart badge to be visible
+            wait.until(ExpectedConditions.visibilityOf(cartBadge));
+            return Integer.parseInt(cartBadge.getText());
         } catch (Exception e) {
             // Cart badge not visible means 0 items
+            return 0;
         }
-        return 0;
     }
     
     public void addItemToCart(int itemIndex) {
@@ -82,6 +82,12 @@ public class InventoryPage {
             WebElement addButton = addToCartButtons.get(itemIndex);
             wait.until(ExpectedConditions.elementToBeClickable(addButton));
             addButton.click();
+            // Wait a moment for the cart to update
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
     
@@ -106,6 +112,12 @@ public class InventoryPage {
     
     public void logout() {
         openMenu();
+        // Wait a bit for menu to fully open
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         wait.until(ExpectedConditions.elementToBeClickable(logoutLink));
         logoutLink.click();
     }
