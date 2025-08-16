@@ -106,6 +106,8 @@ public class InventoryPage {
     public void addItemToCart(int itemIndex) {
         if (itemIndex >= 0 && itemIndex < addToCartButtons.size()) {
             WebElement addButton = addToCartButtons.get(itemIndex);
+            
+            // Wait for button to be clickable
             wait.until(ExpectedConditions.elementToBeClickable(addButton));
             
             // Check if button is already "Remove" (item already in cart)
@@ -117,30 +119,70 @@ public class InventoryPage {
                 return; // Item already in cart
             }
             
-            addButton.click();
-            System.out.println("Button clicked, waiting for update...");
+            // Try multiple click strategies
+            boolean clickSuccessful = false;
             
-            // Wait for cart to update
+            // Strategy 1: Regular click
             try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                System.out.println("Attempting regular click...");
+                addButton.click();
+                clickSuccessful = true;
+                System.out.println("Regular click successful");
+            } catch (Exception e) {
+                System.out.println("Regular click failed: " + e.getMessage());
             }
             
-            // Check button text after click to verify item was added
-            try {
-                PageFactory.initElements(driver, this);
-                if (itemIndex < addToCartButtons.size()) {
-                    String newButtonText = addToCartButtons.get(itemIndex).getText().trim();
-                    System.out.println("Button text after click: '" + newButtonText + "'");
-                    if (newButtonText.equals("Remove")) {
-                        System.out.println("✅ Item successfully added to cart (button changed to Remove)");
-                    } else {
-                        System.out.println("❌ Item may not have been added (button still shows: " + newButtonText + ")");
-                    }
+            // Strategy 2: JavaScript click if regular click failed
+            if (!clickSuccessful) {
+                try {
+                    System.out.println("Attempting JavaScript click...");
+                    ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("arguments[0].click();", addButton);
+                    clickSuccessful = true;
+                    System.out.println("JavaScript click successful");
+                } catch (Exception e) {
+                    System.out.println("JavaScript click failed: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                System.out.println("Could not verify button text after click: " + e.getMessage());
+            }
+            
+            // Strategy 3: Actions click if both failed
+            if (!clickSuccessful) {
+                try {
+                    System.out.println("Attempting Actions click...");
+                    org.openqa.selenium.interactions.Actions actions = new org.openqa.selenium.interactions.Actions(driver);
+                    actions.moveToElement(addButton).click().perform();
+                    clickSuccessful = true;
+                    System.out.println("Actions click successful");
+                } catch (Exception e) {
+                    System.out.println("Actions click failed: " + e.getMessage());
+                }
+            }
+            
+            if (!clickSuccessful) {
+                System.out.println("❌ All click strategies failed!");
+                return;
+            }
+            
+            System.out.println("Button clicked, waiting for update...");
+            
+            // Wait for cart to update with multiple checks
+            for (int i = 0; i < 5; i++) {
+                try {
+                    Thread.sleep(1000);
+                    
+                    // Refresh elements and check button text
+                    PageFactory.initElements(driver, this);
+                    if (itemIndex < addToCartButtons.size()) {
+                        String newButtonText = addToCartButtons.get(itemIndex).getText().trim();
+                        System.out.println("Check " + (i+1) + ": Button text = '" + newButtonText + "'");
+                        
+                        if (newButtonText.equals("Remove")) {
+                            System.out.println("✅ Item successfully added to cart (button changed to Remove)");
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("Error during check " + (i+1) + ": " + e.getMessage());
+                }
             }
             
             System.out.println("Add to cart operation completed.");
