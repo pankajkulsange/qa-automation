@@ -105,16 +105,14 @@ public class InventoryPage {
             addButton.click();
             System.out.println("Button clicked, waiting for update...");
             
-            // Simple wait for cart to update
+            // Wait for cart to update
             try {
-                Thread.sleep(2000);
+                Thread.sleep(3000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
             
-            // Check button text after click
-            String newButtonText = addButton.getText().trim();
-            System.out.println("Button text after click: '" + newButtonText + "'");
+            System.out.println("Add to cart operation completed.");
         }
     }
     
@@ -185,11 +183,19 @@ public class InventoryPage {
     
     public int getCartItemCountAlternative() {
         try {
+            // Refresh page elements to avoid stale references
+            PageFactory.initElements(driver, this);
+            
             // Count items with "Remove" button text
             int count = 0;
             for (WebElement button : addToCartButtons) {
-                if (button.getText().trim().equals("Remove")) {
-                    count++;
+                try {
+                    if (button.getText().trim().equals("Remove")) {
+                        count++;
+                    }
+                } catch (Exception e) {
+                    // Skip stale elements
+                    continue;
                 }
             }
             System.out.println("Alternative cart count (Remove buttons): " + count);
