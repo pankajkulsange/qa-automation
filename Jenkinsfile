@@ -2,6 +2,7 @@ pipeline {
     agent any
     
     parameters {
+        string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to checkout')
         string(name: 'TAGS', defaultValue: '@smoke', description: 'Cucumber tags to run')
         choice(name: 'BROWSER', choices: ['chrome', 'firefox'], description: 'Browser to run tests on')
         booleanParam(name: 'HEADLESS', defaultValue: true, description: 'Run browser in headless mode')
@@ -14,7 +15,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo "Project checked out successfully"
+                checkout scm
+                echo "Project checked out successfully from branch: ${params.BRANCH}"
                 bat 'dir'
             }
         }
