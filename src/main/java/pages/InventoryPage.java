@@ -75,15 +75,30 @@ public class InventoryPage {
     
     public int getCartItemCount() {
         try {
+            // First check if cart badge element exists in DOM
+            System.out.println("Checking for cart badge element...");
+            
             // Wait for cart badge to be visible with a longer timeout
             WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(10));
             shortWait.until(ExpectedConditions.visibilityOf(cartBadge));
             String badgeText = cartBadge.getText().trim();
-            System.out.println("Cart badge text: '" + badgeText + "'");
+            System.out.println("✅ Cart badge found and visible. Text: '" + badgeText + "'");
             return Integer.parseInt(badgeText);
         } catch (Exception e) {
             // Cart badge not visible means 0 items
-            System.out.println("Cart badge not visible or error: " + e.getMessage());
+            System.out.println("❌ Cart badge not visible or error: " + e.getMessage());
+            
+            // Let's also check if the cart link itself is visible
+            try {
+                if (shoppingCartLink.isDisplayed()) {
+                    System.out.println("✅ Shopping cart link is visible");
+                } else {
+                    System.out.println("❌ Shopping cart link is not visible");
+                }
+            } catch (Exception cartLinkException) {
+                System.out.println("❌ Could not check shopping cart link: " + cartLinkException.getMessage());
+            }
+            
             return 0;
         }
     }
@@ -110,6 +125,22 @@ public class InventoryPage {
                 Thread.sleep(3000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            }
+            
+            // Check button text after click to verify item was added
+            try {
+                PageFactory.initElements(driver, this);
+                if (itemIndex < addToCartButtons.size()) {
+                    String newButtonText = addToCartButtons.get(itemIndex).getText().trim();
+                    System.out.println("Button text after click: '" + newButtonText + "'");
+                    if (newButtonText.equals("Remove")) {
+                        System.out.println("✅ Item successfully added to cart (button changed to Remove)");
+                    } else {
+                        System.out.println("❌ Item may not have been added (button still shows: " + newButtonText + ")");
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("Could not verify button text after click: " + e.getMessage());
             }
             
             System.out.println("Add to cart operation completed.");
@@ -186,14 +217,21 @@ public class InventoryPage {
             // Refresh page elements to avoid stale references
             PageFactory.initElements(driver, this);
             
+            System.out.println("Checking " + addToCartButtons.size() + " inventory buttons for 'Remove' text...");
+            
             // Count items with "Remove" button text
             int count = 0;
-            for (WebElement button : addToCartButtons) {
+            for (int i = 0; i < addToCartButtons.size(); i++) {
                 try {
-                    if (button.getText().trim().equals("Remove")) {
+                    WebElement button = addToCartButtons.get(i);
+                    String buttonText = button.getText().trim();
+                    System.out.println("Button " + i + " text: '" + buttonText + "'");
+                    if (buttonText.equals("Remove")) {
                         count++;
+                        System.out.println("✅ Found 'Remove' button at index " + i);
                     }
                 } catch (Exception e) {
+                    System.out.println("❌ Error checking button " + i + ": " + e.getMessage());
                     // Skip stale elements
                     continue;
                 }
