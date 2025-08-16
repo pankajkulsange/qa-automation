@@ -49,8 +49,8 @@ pipeline {
                     archiveArtifacts artifacts: 'target/cucumber-reports/**/*', fingerprint: true
                     archiveArtifacts artifacts: 'target/surefire-reports/**/*', fingerprint: true
                     
-                    // Archive test results (JUnit XML format)
-                    archiveArtifacts artifacts: 'target/cucumber-reports/junit.xml', fingerprint: true
+                    // Publish test results
+                    publishTestResults testResultsPattern: 'target/cucumber-reports/junit.xml'
                     
                     // Publish HTML reports
                     publishHTML([
@@ -68,6 +68,10 @@ pipeline {
     }
     
     post {
+        always {
+            publishTestResults testResultsPattern: 'target/cucumber-reports/junit.xml'
+        }
+        
         success {
             echo '✅ Build successful!'
             echo '📊 Reports available in target/cucumber-reports/'

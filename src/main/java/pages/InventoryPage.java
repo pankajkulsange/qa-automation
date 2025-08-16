@@ -111,7 +111,12 @@ public class InventoryPage {
     }
     
     public String getPageTitle() {
-        return driver.getTitle();
+        try {
+            wait.until(ExpectedConditions.visibilityOf(pageTitle));
+            return pageTitle.getText();
+        } catch (Exception e) {
+            return driver.getTitle(); // fallback to browser title
+        }
     }
     
     public String getCurrentUrl() {
