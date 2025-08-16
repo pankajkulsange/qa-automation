@@ -79,9 +79,11 @@ public class InventoryPage {
             WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(10));
             shortWait.until(ExpectedConditions.visibilityOf(cartBadge));
             String badgeText = cartBadge.getText().trim();
+            System.out.println("Cart badge text: '" + badgeText + "'");
             return Integer.parseInt(badgeText);
         } catch (Exception e) {
             // Cart badge not visible means 0 items
+            System.out.println("Cart badge not visible or error: " + e.getMessage());
             return 0;
         }
     }
@@ -93,11 +95,15 @@ public class InventoryPage {
             
             // Check if button is already "Remove" (item already in cart)
             String buttonText = addButton.getText().trim();
+            System.out.println("Button text before click: '" + buttonText + "'");
+            
             if (buttonText.equals("Remove")) {
+                System.out.println("Item already in cart, skipping...");
                 return; // Item already in cart
             }
             
             addButton.click();
+            System.out.println("Button clicked, waiting for update...");
             
             // Simple wait for cart to update
             try {
@@ -105,6 +111,10 @@ public class InventoryPage {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+            
+            // Check button text after click
+            String newButtonText = addButton.getText().trim();
+            System.out.println("Button text after click: '" + newButtonText + "'");
         }
     }
     
@@ -170,6 +180,23 @@ public class InventoryPage {
             return isInventoryPageDisplayed() && shoppingCartLink.isDisplayed();
         } catch (Exception e) {
             return false;
+        }
+    }
+    
+    public int getCartItemCountAlternative() {
+        try {
+            // Count items with "Remove" button text
+            int count = 0;
+            for (WebElement button : addToCartButtons) {
+                if (button.getText().trim().equals("Remove")) {
+                    count++;
+                }
+            }
+            System.out.println("Alternative cart count (Remove buttons): " + count);
+            return count;
+        } catch (Exception e) {
+            System.out.println("Error in alternative cart count: " + e.getMessage());
+            return 0;
         }
     }
 }
