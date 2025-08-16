@@ -8,12 +8,11 @@ pipeline {
         choice(name: 'ENV', choices: ['local', 'staging', 'production'], description: 'Environment to test against')
         string(name: 'THREADS', defaultValue: '1', description: 'Number of parallel threads')
         booleanParam(name: 'HEADLESS', defaultValue: true, description: 'Run browser in headless mode')
-        booleanParam(name: 'USE_DOCKER', defaultValue: true, description: 'Use Docker containers for execution')
+        booleanParam(name: 'USE_DOCKER', defaultValue: false, description: 'Use Docker containers for execution')
     }
     
     environment {
         MAVEN_OPTS = '-Xmx2048m'
-        SELENIUM_GRID_URL = 'http://localhost:4444/wd/hub'
         PROJECT_PATH = 'D:/projects/first-project/qa-automation'
     }
     
@@ -21,11 +20,10 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // For local setup, we'll use the existing project directory
                     echo "Using project at: ${PROJECT_PATH}"
                     dir("${PROJECT_PATH}") {
-                        // Clean and prepare workspace
-                        bat 'git status || echo "Not a git repository, using local files"'
+                        echo "Project directory contents:"
+                        bat 'dir'
                     }
                 }
             }
@@ -38,14 +36,31 @@ pipeline {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        // Start Selenium Grid containers
-                        bat '''
-                            echo Starting Selenium Grid...
-                            docker-compose up -d selenium-hub chrome
+                        echo "Starting Selenium Grid..."
+                        bat 'docker-compose up -d selenium-hub chrome'
+                        
+                        echo "Waiting for Selenium Grid to be ready..."
+                        // Simple wait using PowerShell
+                        powershell '''
+                            $maxAttempts = 30
+                            $attempt = 0
+                            do {
+                                try {
+                                    $response = Invoke-WebRequest -Uri "http://localhost:4444/wd/hub/status" -UseBasicParsing -TimeoutSec 5
+                                    if ($response.Content -match '"ready":true') {
+                                        Write-Host "Selenium Grid is ready!"
+                                        break
+                                    }
+                                } catch {
+                                    Write-Host "Grid not ready yet, attempt $($attempt + 1)/$maxAttempts"
+                                }
+                                $attempt++
+                                Start-Sleep -Seconds 2
+                            } while ($attempt -lt $maxAttempts)
                             
-                            echo Waiting for Selenium Grid to be ready...
-                            powershell -Command "while (!(Invoke-WebRequest -Uri 'http://localhost:4444/wd/hub/status' -UseBasicParsing | Select-String -Pattern 'ready.*true')) { Start-Sleep -Seconds 2 }"
-                            echo Selenium Grid is ready!
+                            if ($attempt -eq $maxAttempts) {
+                                Write-Host "Warning: Selenium Grid may not be fully ready"
+                            }
                         '''
                     }
                 }
@@ -59,29 +74,18 @@ pipeline {
                         def cucumberOptions = "--tags '${params.TAGS}' --plugin html:target/cucumber-reports/html --plugin json:target/cucumber-reports/cucumber.json --plugin junit:target/cucumber-reports/junit.xml"
                         
                         if (params.USE_DOCKER) {
-                            // Run tests in Docker container
+                            echo "Running tests in Docker container..."
                             bat """
                                 docker run --rm ^
                                     --network qa-automation_qa-network ^
                                     -v ${PROJECT_PATH}:/app ^
                                     -v maven-repo:/root/.m2 ^
                                     -e MAVEN_OPTS="-Xmx2048m" ^
-                                    -e SELENIUM_GRID_URL="http://selenium-hub:4444/wd/hub" ^
                                     maven:3.9.5-openjdk-11 ^
-                                    sh -c "
-                                        cd /app &&
-                                        mvn clean test \\
-                                            -Dbrowser=${params.BROWSER} \\
-                                            -Denv=${params.ENV} \\
-                                            -Dheadless=${params.HEADLESS} \\
-                                            -Dthreads=${params.THREADS} \\
-                                            -Dcucumber.options='${cucumberOptions}' \\
-                                            -Dselenium.grid.url=http://selenium-hub:4444/wd/hub \\
-                                            -Dselenium.grid.enabled=true
-                                    "
+                                    sh -c "cd /app && mvn clean test -Dbrowser=${params.BROWSER} -Denv=${params.ENV} -Dheadless=${params.HEADLESS} -Dthreads=${params.THREADS} -Dcucumber.options='${cucumberOptions}' -Dselenium.grid.enabled=true -Dselenium.grid.url=http://selenium-hub:4444/wd/hub"
                             """
                         } else {
-                            // Run tests locally
+                            echo "Running tests locally..."
                             bat """
                                 mvn clean test ^
                                     -Dbrowser=${params.BROWSER} ^
@@ -108,10 +112,7 @@ pipeline {
                                     -v ${PROJECT_PATH}:/app ^
                                     -v maven-repo:/root/.m2 ^
                                     maven:3.9.5-openjdk-11 ^
-                                    sh -c "
-                                        cd /app &&
-                                        mvn verify
-                                    "
+                                    sh -c "cd /app && mvn verify"
                             """
                         } else {
                             bat 'mvn verify'
@@ -154,7 +155,7 @@ pipeline {
             steps {
                 script {
                     dir("${PROJECT_PATH}") {
-                        // Stop Selenium Grid containers
+                        echo "Cleaning up Docker containers..."
                         bat 'docker-compose down'
                     }
                 }
@@ -167,7 +168,7 @@ pipeline {
             script {
                 if (params.USE_DOCKER) {
                     dir("${PROJECT_PATH}") {
-                        // Always cleanup containers
+                        echo "Final cleanup..."
                         bat 'docker-compose down || exit /b 0'
                     }
                 }
