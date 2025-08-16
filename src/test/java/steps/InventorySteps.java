@@ -20,7 +20,7 @@ public class InventorySteps {
     @When("I add the first item to cart")
     public void i_add_the_first_item_to_cart() {
         System.out.println("Adding first item to cart...");
-        inventoryPage.addItemToCart(0);
+        inventoryPage.addFirstItemToCart();
         System.out.println("First item added to cart.");
     }
     

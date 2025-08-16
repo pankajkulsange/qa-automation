@@ -41,10 +41,32 @@ public class InventoryPage {
     @FindBy(css = ".btn_inventory")
     private List<WebElement> addToCartButtons;
     
+    // Alternative selectors to try
+    @FindBy(css = "button[data-test='add-to-cart-sauce-labs-backpack']")
+    private WebElement firstItemButton;
+    
+    @FindBy(css = "button[data-test='add-to-cart-sauce-labs-bike-light']")
+    private WebElement secondItemButton;
+    
     public InventoryPage(WebDriver driver) {
         this.driver = driver;
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         PageFactory.initElements(driver, this);
+        
+        // Debug: Print page information
+        System.out.println("Current URL: " + driver.getCurrentUrl());
+        System.out.println("Page title: " + driver.getTitle());
+        System.out.println("Number of inventory buttons found: " + addToCartButtons.size());
+        
+        // Debug: Print button information
+        for (int i = 0; i < Math.min(addToCartButtons.size(), 3); i++) {
+            try {
+                WebElement button = addToCartButtons.get(i);
+                System.out.println("Button " + i + " text: '" + button.getText() + "', class: '" + button.getAttribute("class") + "'");
+            } catch (Exception e) {
+                System.out.println("Error getting button " + i + " info: " + e.getMessage());
+            }
+        }
     }
     
     public boolean isInventoryPageDisplayed() {
@@ -186,6 +208,50 @@ public class InventoryPage {
             }
             
             System.out.println("Add to cart operation completed.");
+        }
+    }
+    
+    // New method specifically for the first item using data-test attribute
+    public void addFirstItemToCart() {
+        try {
+            System.out.println("Attempting to add first item using data-test selector...");
+            
+            // Try the specific data-test selector first
+            if (firstItemButton != null) {
+                wait.until(ExpectedConditions.elementToBeClickable(firstItemButton));
+                String buttonText = firstItemButton.getText().trim();
+                System.out.println("First item button text: '" + buttonText + "'");
+                
+                if (buttonText.equals("Remove")) {
+                    System.out.println("First item already in cart, skipping...");
+                    return;
+                }
+                
+                firstItemButton.click();
+                System.out.println("First item button clicked successfully");
+                
+                // Wait and check for button text change
+                for (int i = 0; i < 5; i++) {
+                    Thread.sleep(1000);
+                    PageFactory.initElements(driver, this);
+                    String newButtonText = firstItemButton.getText().trim();
+                    System.out.println("Check " + (i+1) + ": First item button text = '" + newButtonText + "'");
+                    
+                    if (newButtonText.equals("Remove")) {
+                        System.out.println("✅ First item successfully added to cart");
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback to the original method
+            System.out.println("Falling back to original method...");
+            addItemToCart(0);
+            
+        } catch (Exception e) {
+            System.out.println("Error in addFirstItemToCart: " + e.getMessage());
+            // Fallback to the original method
+            addItemToCart(0);
         }
     }
     
