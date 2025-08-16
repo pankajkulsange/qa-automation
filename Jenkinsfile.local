@@ -1,0 +1,197 @@
+pipeline {
+    agent any
+    
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to checkout')
+        string(name: 'TAGS', defaultValue: '@smoke', description: 'Cucumber tags to run (e.g., @smoke, @regression)')
+        choice(name: 'BROWSER', choices: ['chrome', 'firefox'], description: 'Browser to run tests on')
+        choice(name: 'ENV', choices: ['local', 'staging', 'production'], description: 'Environment to test against')
+        string(name: 'THREADS', defaultValue: '1', description: 'Number of parallel threads')
+        booleanParam(name: 'HEADLESS', defaultValue: true, description: 'Run browser in headless mode')
+        booleanParam(name: 'USE_DOCKER', defaultValue: true, description: 'Use Docker containers for execution')
+    }
+    
+    environment {
+        MAVEN_OPTS = '-Xmx2048m'
+        SELENIUM_GRID_URL = 'http://localhost:4444/wd/hub'
+        PROJECT_PATH = 'D:/projects/first-project/qa-automation'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    // For local setup, we'll use the existing project directory
+                    echo "Using project at: ${PROJECT_PATH}"
+                    dir("${PROJECT_PATH}") {
+                        // Clean and prepare workspace
+                        sh 'git status || echo "Not a git repository, using local files"'
+                    }
+                }
+            }
+        }
+        
+        stage('Setup Selenium Grid') {
+            when {
+                expression { params.USE_DOCKER == true }
+            }
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        // Start Selenium Grid containers
+                        sh '''
+                            echo "Starting Selenium Grid..."
+                            docker-compose up -d selenium-hub chrome
+                            
+                            echo "Waiting for Selenium Grid to be ready..."
+                            timeout 60 bash -c 'until curl -s http://localhost:4444/wd/hub/status | grep -q "ready":true; do sleep 2; done'
+                            echo "Selenium Grid is ready!"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        def cucumberOptions = "--tags '${params.TAGS}' --plugin html:target/cucumber-reports/html --plugin json:target/cucumber-reports/cucumber.json --plugin junit:target/cucumber-reports/junit.xml"
+                        
+                        if (params.USE_DOCKER) {
+                            // Run tests in Docker container
+                            sh """
+                                docker run --rm \\
+                                    --network qa-automation_qa-network \\
+                                    -v ${PROJECT_PATH}:/app \\
+                                    -v maven-repo:/root/.m2 \\
+                                    -e MAVEN_OPTS="-Xmx2048m" \\
+                                    -e SELENIUM_GRID_URL="http://selenium-hub:4444/wd/hub" \\
+                                    maven:3.9.5-openjdk-11 \\
+                                    sh -c "
+                                        cd /app &&
+                                        mvn clean test \\
+                                            -Dbrowser=${params.BROWSER} \\
+                                            -Denv=${params.ENV} \\
+                                            -Dheadless=${params.HEADLESS} \\
+                                            -Dthreads=${params.THREADS} \\
+                                            -Dcucumber.options='${cucumberOptions}' \\
+                                            -Dselenium.grid.url=http://selenium-hub:4444/wd/hub \\
+                                            -Dselenium.grid.enabled=true
+                                    "
+                            """
+                        } else {
+                            // Run tests locally
+                            sh """
+                                mvn clean test \\
+                                    -Dbrowser=${params.BROWSER} \\
+                                    -Denv=${params.ENV} \\
+                                    -Dheadless=${params.HEADLESS} \\
+                                    -Dthreads=${params.THREADS} \\
+                                    -Dcucumber.options='${cucumberOptions}' \\
+                                    -Dselenium.grid.enabled=false
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Generate Reports') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        if (params.USE_DOCKER) {
+                            sh """
+                                docker run --rm \\
+                                    --network qa-automation_qa-network \\
+                                    -v ${PROJECT_PATH}:/app \\
+                                    -v maven-repo:/root/.m2 \\
+                                    maven:3.9.5-openjdk-11 \\
+                                    sh -c "
+                                        cd /app &&
+                                        mvn verify
+                                    "
+                            """
+                        } else {
+                            sh 'mvn verify'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Archive Reports') {
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        // Archive test reports
+                        archiveArtifacts artifacts: 'target/cucumber-reports/**/*', fingerprint: true
+                        archiveArtifacts artifacts: 'target/surefire-reports/**/*', fingerprint: true
+                        
+                        // Publish test results
+                        publishTestResults testResultsPattern: 'target/cucumber-reports/junit.xml'
+                        
+                        // Publish HTML reports
+                        publishHTML([
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'target/cucumber-reports/html',
+                            reportFiles: 'index.html',
+                            reportName: 'Cucumber HTML Report',
+                            reportTitles: 'Cucumber Test Results'
+                        ])
+                    }
+                }
+            }
+        }
+        
+        stage('Cleanup') {
+            when {
+                expression { params.USE_DOCKER == true }
+            }
+            steps {
+                script {
+                    dir("${PROJECT_PATH}") {
+                        // Stop Selenium Grid containers
+                        sh 'docker-compose down'
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                if (params.USE_DOCKER) {
+                    dir("${PROJECT_PATH}") {
+                        // Always cleanup containers
+                        sh 'docker-compose down || true'
+                    }
+                }
+                
+                // Publish test results even if build fails
+                dir("${PROJECT_PATH}") {
+                    publishTestResults testResultsPattern: 'target/cucumber-reports/junit.xml'
+                }
+            }
+        }
+        
+        success {
+            echo '✅ Build successful!'
+            echo '📊 Reports available in target/cucumber-reports/'
+        }
+        
+        failure {
+            echo '❌ Build failed!'
+            echo 'Check the console output for details.'
+        }
+        
+        unstable {
+            echo '⚠️ Build unstable!'
+            echo 'Some tests failed but build completed.'
+        }
+    }
+}

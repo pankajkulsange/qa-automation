@@ -1,0 +1,80 @@
+services:
+  # Maven container for running tests
+  maven:
+    image: maven:3.9.5-openjdk-11
+    container_name: qa-automation-maven
+    working_dir: /app
+    volumes:
+      - .:/app
+      - maven-repo:/root/.m2
+    environment:
+      - MAVEN_OPTS=-Xmx2048m
+    depends_on:
+      - selenium-hub
+    networks:
+      - qa-network
+    command: >
+      sh -c "
+        echo 'Waiting for Selenium Hub to be ready...' &&
+        while ! curl -s http://selenium-hub:4444/wd/hub/status | grep -q '"ready":true'; do
+          sleep 2
+        done &&
+        echo 'Selenium Hub is ready!' &&
+        mvn clean test
+      "
+
+  # Selenium Hub
+  selenium-hub:
+    image: selenium/hub:4.15.0
+    container_name: qa-automation-selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    environment:
+      - GRID_MAX_SESSION=16
+      - GRID_BROWSER_TIMEOUT=300
+      - GRID_TIMEOUT=300
+    networks:
+      - qa-network
+
+  # Chrome Node
+  chrome:
+    image: selenium/node-chrome:4.15.0
+    container_name: qa-automation-chrome
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_NODE_SESSION_TIMEOUT=300
+    networks:
+      - qa-network
+
+  # Firefox Node (optional)
+  firefox:
+    image: selenium/node-firefox:4.15.0
+    container_name: qa-automation-firefox
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_NODE_SESSION_TIMEOUT=300
+    networks:
+      - qa-network
+
+volumes:
+  maven-repo:
+
+networks:
+  qa-network:
+    driver: bridge
